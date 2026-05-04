@@ -3636,8 +3636,13 @@ def extract_vb6(path: Path) -> dict:
     try:
         from vb6parser.extract import extract_vb6 as _extract
     except ImportError:
-        return {"nodes": [], "edges": [], "error": "vb6parser not installed. Run: pip install git+https://github.com/Comet0322/vb6-antlr4-python"}
-    return _extract(path)
+        return {"nodes": [], "edges": [], "raw_calls": [], "input_tokens": 0, "output_tokens": 0,
+                "error": "vb6parser not installed. Run: pip install git+https://github.com/Comet0322/vb6-antlr4-python"}
+    result = _extract(path)
+    result.setdefault("input_tokens", 0)
+    result.setdefault("output_tokens", 0)
+    result.setdefault("raw_calls", [])
+    return result
 
 
 # ── Main extract and collect_files ────────────────────────────────────────────

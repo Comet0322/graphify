@@ -178,3 +178,22 @@ def test_extract_vb6_cls_no_dangling_edges():
     node_ids = {n["id"] for n in result["nodes"]}
     for edge in result["edges"]:
         assert edge["source"] in node_ids, f"Dangling source: {edge}"
+
+
+# ── token counts and raw_calls key ────────────────────────────────────────────
+
+def test_extract_vb6_has_input_tokens():
+    result = extract_vb6(FIXTURES / "sample.bas")
+    assert "input_tokens" in result
+    assert result["input_tokens"] == 0
+
+
+def test_extract_vb6_has_output_tokens():
+    result = extract_vb6(FIXTURES / "sample.bas")
+    assert "output_tokens" in result
+    assert result["output_tokens"] == 0
+
+
+def test_extract_vb6_has_raw_calls_key():
+    result = extract_vb6(FIXTURES / "sample.bas")
+    assert "raw_calls" in result
