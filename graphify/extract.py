@@ -3631,119 +3631,13 @@ def extract_elixir(path: Path) -> dict:
 
 # ── VB6 extractor ─────────────────────────────────────────────────────────────
 
-_VB6_PROC_TYPES = frozenset({
-    "subStmt", "functionStmt",
-    "propertyGetStmt", "propertyLetStmt", "propertySetStmt",
-})
-
-
 def extract_vb6(path: Path) -> dict:
-    """Extract procedures and call edges from VB6 .bas/.cls/.frm files via proleap ASG."""
+    """Extract procedures and call edges from VB6 .bas/.cls/.frm files via ANTLR4 Python runtime."""
     try:
-        from vb6_parser import Parser
-        from vb6_parser._errors import ParseError, VbRuntimeError
+        from vb6parser.extract import extract_vb6 as _extract
     except ImportError:
-        return {"nodes": [], "edges": [], "error": "vb6-parser not installed"}
-
-    str_path = str(path)
-    nodes: list[dict] = []
-    edges: list[dict] = []
-    seen_ids: set[str] = set()
-
-    def add_node(nid: str, label: str, line: int) -> None:
-        if nid not in seen_ids:
-            seen_ids.add(nid)
-            nodes.append({
-                "id": nid,
-                "label": label,
-                "file_type": "code",
-                "source_file": str_path,
-                "source_location": f"L{line}",
-            })
-
-    def add_edge(src: str, tgt: str, relation: str, line: int,
-                 confidence: str = "EXTRACTED", weight: float = 1.0,
-                 context: str | None = None) -> None:
-        edge: dict = {
-            "source": src,
-            "target": tgt,
-            "relation": relation,
-            "confidence": confidence,
-            "source_file": str_path,
-            "source_location": f"L{line}",
-            "weight": weight,
-        }
-        if context:
-            edge["context"] = context
-        edges.append(edge)
-
-    try:
-        tree = Parser().parse_file(path)
-    except Exception as e:
-        return {"nodes": [], "edges": [], "error": str(e)}
-
-    stem = _file_stem(path)
-    file_nid = _make_id(str_path)
-    add_node(file_nid, path.name, 1)
-
-    # .cls files represent a class — emit a class node as container
-    is_class = path.suffix.lower() == ".cls"
-    if is_class:
-        class_nid = _make_id(stem)
-        add_node(class_nid, path.stem, 1)
-        add_edge(file_nid, class_nid, "contains", 1)
-        parent_nid = class_nid
-    else:
-        parent_nid = file_nid
-
-    # First pass: build procedure nodes and a name→nid index
-    proc_nid_by_name: dict[str, str] = {}
-
-    def collect_procs(node) -> None:
-        if node.type in _VB6_PROC_TYPES:
-            sem = node.semantic or {}
-            name = sem.get("name") or ""
-            if not name:
-                for child in node.children:
-                    if child.type == "ambiguousIdentifier":
-                        name = child.text.decode("utf-8", errors="replace").strip()
-                        break
-            if name:
-                line = node.start_point[0] + 1
-                nid = _make_id(stem, name)
-                add_node(nid, f"{name}()", line)
-                add_edge(parent_nid, nid, "contains", line)
-                proc_nid_by_name[name.lower()] = nid
-        for child in node.children:
-            collect_procs(child)
-
-    collect_procs(tree.root_node)
-
-    # Second pass: emit calls edges from callers field on each callee
-    seen_call_pairs: set[tuple[str, str]] = set()
-
-    def emit_calls(node) -> None:
-        if node.type in _VB6_PROC_TYPES:
-            sem = node.semantic or {}
-            callee_name = sem.get("name") or ""
-            callee_nid = proc_nid_by_name.get(callee_name.lower())
-            if callee_nid:
-                for caller in sem.get("callers") or []:
-                    caller_name = (caller.get("name") or "").lower()
-                    caller_nid = proc_nid_by_name.get(caller_name)
-                    if caller_nid and caller_nid != callee_nid:
-                        pair = (caller_nid, callee_nid)
-                        if pair not in seen_call_pairs:
-                            seen_call_pairs.add(pair)
-                            add_edge(caller_nid, callee_nid, "calls",
-                                     caller.get("line", 1),
-                                     confidence="EXTRACTED", weight=1.0, context="call")
-        for child in node.children:
-            emit_calls(child)
-
-    emit_calls(tree.root_node)
-
-    return {"nodes": nodes, "edges": edges}
+        return {"nodes": [], "edges": [], "error": "vb6parser not installed. Run: pip install git+https://github.com/Comet0322/vb6-antlr4-python"}
+    return _extract(path)
 
 
 # ── Main extract and collect_files ────────────────────────────────────────────
